@@ -1,0 +1,22 @@
+{
+  "name": "claude-channel-matrix",
+  "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
+  "bin": "./dist/server.js",
+  "scripts": {
+    "start": "npm install --silent && npm run build && node dist/server.js",
+    "start:bun": "bun install --no-summary && bun server.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "matrix-bot-sdk": "^0.7.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "matrix": {
+      "command": "npm",
+      "args": ["run", "--prefix", "${CLAUDE_PLUGIN_ROOT}", "--silent", "start"]
+    }
+  }
+}
