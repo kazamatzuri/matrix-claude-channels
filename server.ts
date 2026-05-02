@@ -285,6 +285,14 @@ async function gate(roomId: string, senderId: string): Promise<GateResult> {
     return { action: 'deliver', access }
   }
 
+  // In static mode, access policy is fixed at boot — no dynamic DM discovery.
+  // Multi-bot deployments (e.g. Workshop's per-track bot processes that share
+  // a single Matrix bot account) all see the same sync stream. Without this
+  // guard, every 2-member room looks like "my DM" to every sibling bot, and
+  // they all deliver. Static deployments are expected to use `access.rooms`
+  // exclusively, so anything not in there is not for this bot.
+  if (STATIC) return { action: 'drop' }
+
   const isDm = await isDmRoom(roomId)
 
   if (isDm) {
