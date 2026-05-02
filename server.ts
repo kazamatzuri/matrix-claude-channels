@@ -270,6 +270,21 @@ async function gate(roomId: string, senderId: string): Promise<GateResult> {
 
   if (access.dmPolicy === 'disabled') return { action: 'drop' }
 
+  // Explicitly-configured rooms take precedence over DM detection.
+  // Matrix has no native DM concept — `isDmRoom` just checks "≤2 members",
+  // which falsely classifies a bot's dedicated 1-on-1 channel as a DM. Without
+  // this short-circuit, sibling bots that share an `allowFrom` sender all
+  // deliver the same message because they all match the DM allowFrom path.
+  const explicitRoomPolicy = access.rooms[roomId]
+  if (explicitRoomPolicy) {
+    const roomAllowFrom = explicitRoomPolicy.allowFrom ?? []
+    if (roomAllowFrom.length > 0 && !roomAllowFrom.includes(senderId)) {
+      return { action: 'drop' }
+    }
+    // Mention check is done by the caller since it needs message content
+    return { action: 'deliver', access }
+  }
+
   const isDm = await isDmRoom(roomId)
 
   if (isDm) {
@@ -303,16 +318,8 @@ async function gate(roomId: string, senderId: string): Promise<GateResult> {
     return { action: 'pair', code, isResend: false }
   }
 
-  // Group/room
-  const policy = access.rooms[roomId]
-  if (!policy) return { action: 'drop' }
-  const roomAllowFrom = policy.allowFrom ?? []
-  const requireMention = policy.requireMention ?? true
-  if (roomAllowFrom.length > 0 && !roomAllowFrom.includes(senderId)) {
-    return { action: 'drop' }
-  }
-  // Mention check is done by the caller since it needs message content
-  return { action: 'deliver', access }
+  // Not explicitly configured and not a DM → drop.
+  return { action: 'drop' }
 }
 
 function isMentioned(body: string, extraPatterns?: string[]): boolean {
