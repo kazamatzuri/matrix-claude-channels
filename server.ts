@@ -538,12 +538,13 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'fetch_messages',
-      description: 'Fetch recent messages from a Matrix room. Returns up to `limit` messages (default 20, max 100).',
+      description: 'Fetch recent messages from a Matrix room. Returns up to `limit` messages (default 20, max 100). If `since_hours` is set, older messages are filtered out after fetching.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           room_id: { type: 'string' },
           limit: { type: 'number', description: 'Number of messages to fetch (default 20, max 100)' },
+          since_hours: { type: 'number', description: 'Only return messages from the last N hours (default 24). Pass 0 to disable the time filter.' },
         },
         required: ['room_id'],
       },
@@ -729,6 +730,9 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
       case 'fetch_messages': {
         const room_id = args.room_id as string
         const msgLimit = Math.min(Math.max(1, Number(args.limit) || 20), 100)
+        const sinceHoursRaw = args.since_hours === undefined ? 24 : Number(args.since_hours)
+        const sinceHours = Number.isFinite(sinceHoursRaw) && sinceHoursRaw >= 0 ? sinceHoursRaw : 24
+        const cutoffMs = sinceHours > 0 ? Date.now() - sinceHours * 3600 * 1000 : 0
 
         assertAllowedChat(room_id)
 
@@ -741,6 +745,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
 
         const messages = (events.chunk ?? [])
           .filter((e: any) => e.type === 'm.room.message')
+          .filter((e: any) => cutoffMs === 0 || e.origin_server_ts >= cutoffMs)
           .map((e: any) => ({
             event_id: e.event_id,
             sender: e.sender,
@@ -749,11 +754,12 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
           }))
           .reverse()
 
+        const windowLabel = sinceHours > 0 ? ` (last ${sinceHours}h)` : ''
         return {
           content: [{
             type: 'text',
             text: messages.length === 0
-              ? 'no messages found'
+              ? `no messages found${windowLabel}`
               : messages.map((m: any) => `[${m.ts}] ${m.sender}: ${m.body} (id: ${m.event_id})`).join('\n'),
           }],
         }
